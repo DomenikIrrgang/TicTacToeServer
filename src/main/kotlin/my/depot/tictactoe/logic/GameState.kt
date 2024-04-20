@@ -1,21 +1,25 @@
 package my.depot.tictactoe.logic
 
+import jakarta.persistence.Entity
 import my.depot.tictactoe.logic.rules.GameRule
+import my.depot.tictactoe.logic.rules.MoveValidRule
+import my.depot.tictactoe.logic.rules.ProcessRule
 
 class GameState constructor(
-        val width: Int,
-        val height: Int,
-        val agents: Array<Agent>,
-        val rules: Array<GameRule>,
+    gameOptions: GameOptions
 ) {
+    val width: Int = gameOptions.width
+    val height: Int = gameOptions.height
+    var agents: Array<Agent> = gameOptions.agents
+    var rules: Array<GameRule> = gameOptions.rules.map { it.rule }.toTypedArray()
     var turn: Int = 1
     var moveCount: Int = 0
-    val board: Array<Agent?> = Array<Agent?>(width * height) { i -> null }
-    var currentAgent: Agent = agents[(0..(agents.size - 1)).random()]
+    val board: Array<Agent?> = Array<Agent?>(width * height) { null }
+    var currentAgent: Agent? = if (agents.size > 0) agents[agents.indices.random()] else null
     var result: GameResult = GameResult.UNRESOLVED
     var winner: Agent? = null
 
-    private fun getBoardPosition(coordinate: Coordinate): Int = width * coordinate.y + coordinate.x
+    fun getBoardPosition(coordinate: Coordinate): Int = width * coordinate.y + coordinate.x
 
     fun getBoardAtPosition(coordinate: Coordinate): Agent? = board[getBoardPosition(coordinate)]
 
@@ -25,7 +29,9 @@ class GameState constructor(
 
     fun isResolved(): Boolean = result != GameResult.UNRESOLVED
 
-    fun getRow(coordinate: Coordinate): Array<Agent?> = board.copyOfRange(width * coordinate.y, width * coordinate.y + width)
+    fun getRow(coordinate: Coordinate): Array<Agent?> {
+        return board.filterIndexed { index, _ -> index / width == coordinate.y }.toTypedArray()
+    }
 
     fun getColumn(coordinate: Coordinate): Array<Agent?> {
         return board.filterIndexed { index, _ -> index % width == coordinate.x }.toTypedArray()
@@ -41,7 +47,7 @@ class GameState constructor(
             result.add(getBoardAtPosition(index))
             index = Coordinate(index.x + 1, index.y + 1)
         }
-        return board
+        return result.toTypedArray()
     }
 
     fun getDiagonalRight(coordinate: Coordinate): Array<Agent?> {
@@ -57,6 +63,39 @@ class GameState constructor(
             result.add(getBoardAtPosition(index))
             index = Coordinate(index.x - 1, index.y + 1)
         }
-        return board
+        return result.toTypedArray()
+    }
+
+    fun makeMove(move: Move): Boolean {
+        if (!canMakeMove(move)) return false
+        processMoveRules(move)
+        return true
+    }
+
+    private fun processMoveRules(move: Move) {
+        rules.filterIsInstance<ProcessRule>().forEach {
+            it.processMove(this, move)
+        }
+    }
+
+    private fun canMakeMove(move: Move): Boolean {
+        if (isResolved()) return false
+        rules.filterIsInstance<MoveValidRule>().forEach {
+            if (!it.moveValid(this, move)) {
+                return@canMakeMove false
+            }
+        }
+        return true
+    }
+
+    fun addRule(gameRule: GameRule): GameState {
+        rules = rules.plus(gameRule)
+        return this
+    }
+
+    fun addAgent(agent: Agent): GameState {
+        if (currentAgent == null) currentAgent = agent
+        agents = agents.plus(agent)
+        return this
     }
 }

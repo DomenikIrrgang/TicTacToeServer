@@ -5,7 +5,7 @@ import my.depot.tictactoe.logic.GameState
 import my.depot.tictactoe.logic.Move
 import my.depot.tictactoe.util.hasValueConsecutively
 
-class XinADiagonalRule constructor(private val amount: Int) : ProcessRule {
+class XinADiagonalRule constructor(private val amount: Int) : ProcessRule("Declares a winner if an agent has a certain amount of tokens in a diagonal.") {
 
     override fun processMove(gameState: GameState, move: Move) {
         if (!gameState.isResolved()) {
